@@ -1,74 +1,97 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="AI Audit Automation Dashboard", layout="centered")
+st.set_page_config(page_title="Audit AI Dashboard", layout="centered")
+st.title("🧾 AI-Powered Audit & Engagement Dashboard")
 
-st.title("🧾 AI Audit Automation - Engagement Dashboard")
+st.markdown("Upload the latest **Balance Sheet** and **Profit & Loss Statement** in Excel format (.xlsx).")
 
-st.markdown("Upload your **Balance Sheet** and **P&L** Excel files to begin.")
-
-bs_file = st.file_uploader("📂 Upload Balance Sheet (Excel)", type=["xlsx"], key="bs")
-pl_file = st.file_uploader("📂 Upload Profit & Loss Statement (Excel)", type=["xlsx"], key="pl")
-    # Show dataframes in browser to confirm correct upload
-    st.subheader("Balance Sheet Preview")
-    st.write(bs_df)
-
-    st.subheader("Profit & Loss Preview")
-    st.write(pl_df)
+bs_file = st.file_uploader("📂 Upload Balance Sheet", type=["xlsx"])
+pl_file = st.file_uploader("📂 Upload Profit & Loss", type=["xlsx"])
 
 def get_value(df, key):
     try:
         return df[df['Particulars'].str.strip().str.lower() == key.strip().lower()]['Amount'].values[0]
     except IndexError:
-        st.error(f"❌ '{key}' not found in uploaded file. Please check formatting.")
+        st.error(f"❌ '{key}' not found. Check spelling or formatting.")
         return None
-
-def calculate_ratios(bs_df, pl_df):
-    try:
-        current_assets = bs_df.loc[bs_df['Particulars'].str.contains("Current Assets", case=False), 'Amount'].values[0]
-        current_liabilities = bs_df.loc[bs_df['Particulars'].str.contains("Current Liabilities", case=False), 'Amount'].values[0]
-        total_liabilities = bs_df.loc[bs_df['Particulars'].str.contains("Total Liabilities", case=False), 'Amount'].values[0]
-        total_equity = bs_df.loc[bs_df['Particulars'].str.contains("Equity", case=False), 'Amount'].values[0]
-        gross_profit = pl_df.loc[pl_df['Particulars'].str.contains("Gross Profit", case=False), 'Amount'].values[0]
-        net_profit = pl_df.loc[pl_df['Particulars'].str.contains("Net Profit", case=False), 'Amount'].values[0]
-        revenue = pl_df.loc[pl_df['Particulars'].str.contains("Revenue|Sales", case=False), 'Amount'].values[0]
-        interest_expense = pl_df.loc[pl_df['Particulars'].str.contains("Interest", case=False), 'Amount'].values[0]
-        total_assets = bs_df.loc[bs_df['Particulars'].str.contains("Total Assets", case=False), 'Amount'].values[0]
-        
-        ratios = {
-            "Current Ratio": current_assets / current_liabilities,
-            "Debt-to-Equity Ratio": total_liabilities / total_equity,
-            "Gross Profit Margin": (gross_profit / revenue) * 100,
-            "Net Profit Margin": (net_profit / revenue) * 100,
-            "Return on Assets": (net_profit / total_assets) * 100,
-            "Interest Coverage Ratio": net_profit / interest_expense if interest_expense != 0 else "N/A"
-        }
-        return ratios
-    except Exception as e:
-        st.error(f"Error calculating ratios: {e}")
-        return {}
 
 if bs_file and pl_file:
     bs_df = pd.read_excel(bs_file)
     pl_df = pd.read_excel(pl_file)
 
-    st.success("Files uploaded successfully!")
+    st.subheader("🧮 Balance Sheet Preview")
+    st.write(bs_df)
 
-    ratios = calculate_ratios(bs_df, pl_df)
+    st.subheader("📊 Profit & Loss Preview")
+    st.write(pl_df)
 
-    if ratios:
-        st.subheader("📊 Calculated Tax Audit Ratios")
-        for key, value in ratios.items():
-            st.write(f"**{key}**: {round(value, 2) if isinstance(value, float) else value}")
+    # Extract values
+    current_assets = get_value(bs_df, "Current Assets")
+    current_liabilities = get_value(bs_df, "Current Liabilities")
+    total_liabilities = get_value(bs_df, "Total Liabilities")
+    reserves = get_value(bs_df, "Reserves and Surplus")
+    share_capital = get_value(bs_df, "Share Capital")
+    total_assets = get_value(bs_df, "Total Assets")
 
-        st.subheader("🔍 Audit Comment & Engagement Decision")
+    revenue = get_value(pl_df, "Revenue from Operations")
+    gross_profit = get_value(pl_df, "Gross Profit")
+    net_profit = get_value(pl_df, "Net Profit")
+    interest_expense = get_value(pl_df, "Interest Expense")
 
-        if ratios["Current Ratio"] < 1:
-            st.error("⚠️ Poor liquidity position detected. Engagement Risk: HIGH")
-        elif ratios["Net Profit Margin"] < 5:
-            st.warning("⚠️ Low profitability. Proceed with caution.")
-        else:
-            st.success("✅ Financial position appears stable. Engagement Risk: LOW")
+    if None in [current_assets, current_liabilities, total_liabilities, reserves, share_capital, total_assets,
+                revenue, gross_profit, net_profit, interest_expense]:
+        st.warning("⚠️ Missing data found. Please upload files in correct format.")
+        st.stop()
 
-        st.markdown("---")
-        st.download_button("📥 Download Report", data=str(ratios), file_name="audit_report.txt")
+    # Calculate Ratios
+    current_ratio = round(current_assets / current_liabilities, 2) if current_liabilities else None
+    debt_equity_ratio = round(total_liabilities / (share_capital + reserves), 2)
+    gp_margin = round(gross_profit / revenue, 2)
+    np_margin = round(net_profit / revenue, 2)
+    roa = round(net_profit / total_assets, 2)
+    interest_coverage = round(net_profit / interest_expense, 2) if interest_expense else None
+
+    # Show Ratios
+    st.subheader("📌 Tax Audit Ratios")
+    ratios = {
+        "Current Ratio": current_ratio,
+        "Debt-to-Equity Ratio": debt_equity_ratio,
+        "Gross Profit Margin": gp_margin,
+        "Net Profit Margin": np_margin,
+        "Return on Assets": roa,
+        "Interest Coverage Ratio": interest_coverage
+    }
+    st.table(pd.DataFrame(ratios.items(), columns=["Ratio", "Value"]))
+
+    # Decision Logic
+    decision = "✅ Accept/Continue Engagement"
+    if current_ratio < 1 or interest_coverage < 1.5 or np_margin < 0.05:
+        decision = "⚠️ High Risk – Consider Not Accepting/Continuing Engagement"
+
+    st.subheader("📌 Final Decision")
+    st.success(decision)
+
+    # PDF Download (Optional)
+    with st.expander("📥 Export & Share"):
+        import io
+        from fpdf import FPDF
+
+        buffer = io.BytesIO()
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt="Audit AI Dashboard - Summary", ln=1, align="C")
+
+        for k, v in ratios.items():
+            pdf.cell(200, 10, txt=f"{k}: {v}", ln=1)
+
+        pdf.cell(200, 10, txt=f"Final Decision: {decision}", ln=1)
+        pdf.output(buffer)
+        st.download_button("📄 Download PDF Summary", buffer.getvalue(), file_name="Audit_Report.pdf")
+
+        st.text("To share with team, simply send the downloaded PDF.")
+
+else:
+    st.info("⬆️ Please upload both Balance Sheet and Profit & Loss files.")
+
