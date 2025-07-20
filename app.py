@@ -9,6 +9,19 @@ st.markdown("Upload your **Balance Sheet** and **P&L** Excel files to begin.")
 
 bs_file = st.file_uploader("📂 Upload Balance Sheet (Excel)", type=["xlsx"], key="bs")
 pl_file = st.file_uploader("📂 Upload Profit & Loss Statement (Excel)", type=["xlsx"], key="pl")
+    # Show dataframes in browser to confirm correct upload
+    st.subheader("Balance Sheet Preview")
+    st.write(bs_df)
+
+    st.subheader("Profit & Loss Preview")
+    st.write(pl_df)
+
+def get_value(df, key):
+    try:
+        return df[df['Particulars'].str.strip().str.lower() == key.strip().lower()]['Amount'].values[0]
+    except IndexError:
+        st.error(f"❌ '{key}' not found in uploaded file. Please check formatting.")
+        return None
 
 def calculate_ratios(bs_df, pl_df):
     try:
