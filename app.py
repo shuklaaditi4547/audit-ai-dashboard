@@ -72,25 +72,7 @@ if bs_file and pl_file:
     st.subheader("📌 Final Decision")
     st.success(decision)
 
-    # PDF Download (Optional)
-    with st.expander("📥 Export & Share"):
-        import io
-        from fpdf import FPDF
-
-        buffer = io.BytesIO()
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt="Audit AI Dashboard - Summary", ln=1, align="C")
-
-        for k, v in ratios.items():
-            pdf.cell(200, 10, txt=f"{k}: {v}", ln=1)
-
-        pdf.cell(200, 10, txt=f"Final Decision: {decision}", ln=1)
-        pdf.output(buffer)
-        st.download_button("📄 Download PDF Summary", buffer.getvalue(), file_name="Audit_Report.pdf")
-
-        st.text("To share with team, simply send the downloaded PDF.")
+    
 
 else:
     st.info("⬆️ Please upload both Balance Sheet and Profit & Loss files.")
